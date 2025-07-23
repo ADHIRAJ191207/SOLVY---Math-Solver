@@ -1,0 +1,209 @@
+
+import re
+import tkinter as tk
+from tkinter import messagebox
+
+try:
+    from sympy import symbols, Eq, solve
+except ModuleNotFoundError:
+    print("❌ ERROR: The 'sympy' module is not installed. Please run: pip install sympy")
+    exit(1)
+
+# Define symbol
+x = symbols('x')
+
+def parse_input(user_input):
+    user_input = user_input.lower().strip().replace('^', '**')
+    user_input = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', user_input)  
+    user_input = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', user_input)  
+
+    if user_input.startswith("area of rectangle"):
+        match = re.findall(r'(\w)\s*=\s*(\d+)', user_input)
+        params = {k: int(v) for k, v in match}
+        if 'l' in params and 'b' in params:
+            return f"geometry:rectangle_area:{params['l']}:{params['b']}"
+
+    if user_input.startswith("area of circle"):
+        match = re.search(r'r\s*=\s*(\d+)', user_input)
+        if match:
+            return f"geometry:circle_area:{match.group(1)}"
+
+    if user_input.startswith("area of triangle"):
+        match = re.findall(r'(\w)\s*=\s*(\d+)', user_input)
+        params = {k: int(v) for k, v in match}
+        if 'b' in params and 'h' in params:
+            return f"geometry:triangle_area:{params['b']}:{params['h']}"
+
+    if user_input.startswith("perimeter of rectangle"):
+        match = re.findall(r'(\w)\s*=\s*(\d+)', user_input)
+        params = {k: int(v) for k, v in match}
+        if 'l' in params and 'b' in params:
+            return f"geometry:rectangle_perimeter:{params['l']}:{params['b']}"
+
+    if user_input.startswith("perimeter of square"):
+        match = re.search(r'a\s*=\s*(\d+)', user_input)
+        if match:
+            return f"geometry:square_perimeter:{match.group(1)}"
+
+    if user_input.startswith("perimeter of circle"):
+        match = re.search(r'r\s*=\s*(\d+)', user_input)
+        if match:
+            return f"geometry:circle_perimeter:{match.group(1)}"
+
+    if user_input.startswith("volume of cube"):
+        match = re.search(r'a\s*=\s*(\d+)', user_input)
+        if match:
+            return f"geometry:cube_volume:{match.group(1)}"
+
+    if user_input.startswith("volume of cuboid"):
+        match = re.findall(r'(\w)\s*=\s*(\d+)', user_input)
+        params = {k: int(v) for k, v in match}
+        if 'l' in params and 'b' in params and 'h' in params:
+            return f"geometry:cuboid_volume:{params['l']}:{params['b']}:{params['h']}"
+
+    if user_input.startswith("volume of sphere"):
+        match = re.search(r'r\s*=\s*(\d+)', user_input)
+        if match:
+            return f"geometry:sphere_volume:{match.group(1)}"
+
+    if user_input.startswith("volume of cone"):
+        match = re.findall(r'(\w)\s*=\s*(\d+)', user_input)
+        params = {k: int(v) for k, v in match}
+        if 'r' in params and 'h' in params:
+            return f"geometry:cone_volume:{params['r']}:{params['h']}"
+
+    match = re.search(r'solve[:\s]*([\d\sxX\^\+\-\*/=\.]+)', user_input)
+    if match:
+        expression = match.group(1).replace('X', 'x')
+        expression = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expression)
+        expression = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', expression)
+        return expression
+
+    return None
+
+def get_equation_steps(equation_str):
+    try:
+        if equation_str.startswith("geometry:"):
+            parts = equation_str.split(":")
+            shape, action = parts[1], parts[2]
+
+            if shape == "rectangle_area":
+                l, b = int(parts[3]), int(parts[4])
+                return [f"Area of Rectangle = {l} × {b} = {l*b} cm²"]
+
+            if shape == "circle_area":
+                r = int(parts[3])
+                return [f"Area of Circle = π × {r}² = {3.1416 * r * r:.2f} cm²"]
+
+            if shape == "triangle_area":
+                b, h = int(parts[3]), int(parts[4])
+                return [f"Area of Triangle = ½ × {b} × {h} = {0.5 * b * h} cm²"]
+
+            if shape == "rectangle_perimeter":
+                l, b = int(parts[3]), int(parts[4])
+                return [f"Perimeter of Rectangle = 2 × ({l} + {b}) = {2 * (l + b)} cm"]
+
+            if shape == "square_perimeter":
+                a = int(parts[3])
+                return [f"Perimeter of Square = 4 × {a} = {4 * a} cm"]
+
+            if shape == "circle_perimeter":
+                r = int(parts[3])
+                return [f"Perimeter (Circumference) of Circle = 2π × {r} = {2 * 3.1416 * r:.2f} cm"]
+
+            if shape == "cube_volume":
+                a = int(parts[3])
+                return [f"Volume of Cube = {a}³ = {a**3} cm³"]
+
+            if shape == "cuboid_volume":
+                l, b, h = int(parts[3]), int(parts[4]), int(parts[5])
+                return [f"Volume of Cuboid = {l} × {b} × {h} = {l * b * h} cm³"]
+
+            if shape == "sphere_volume":
+                r = int(parts[3])
+                return [f"Volume of Sphere = ⁴⁄₃π × {r}³ = {(4/3) * 3.1416 * r**3:.2f} cm³"]
+
+            if shape == "cone_volume":
+                r, h = int(parts[3]), int(parts[4])
+                return [f"Volume of Cone = ⅓π × {r}² × {h} = {(1/3) * 3.1416 * r**2 * h:.2f} cm³"]
+
+            return ["❌ Unsupported geometry operation."]
+
+        # Equation solving
+        lhs, rhs = equation_str.split('=')
+        lhs_expr = eval(lhs.strip(), {"x": x})
+        rhs_expr = eval(rhs.strip(), {"x": x})
+
+        eq = Eq(lhs_expr, rhs_expr)
+        solution = solve(eq, x)
+
+        degree = lhs_expr.as_poly(x).degree() if lhs_expr.is_polynomial() else 1
+        steps = []
+
+        if degree == 1:
+            steps.append("Detected linear equation.")
+            steps.append(f"Solving: {eq}")
+            steps.append(f"Solution: x = {solution[0]}")
+
+        elif degree == 2:
+            steps.append("Detected quadratic equation.")
+            steps.append(f"Solving: {eq}")
+            for i, s in enumerate(solution):
+                steps.append(f"Root {i+1}: x = {s}")
+
+        else:
+            steps.append("Equation of degree higher than 2 is not supported yet.")
+
+        return steps
+
+    except Exception as e:
+        return [f"Error: Unable to solve the equation. Details: {e}"]
+
+def main():
+    print(" Welcome to Solvy - AI Math Solver")
+    while True:
+        user_input = input("\nEnter a math question (or 'exit'): ")
+        if user_input.lower() == "exit":
+            print(" Goodbye!")
+            break
+        parsed = parse_input(user_input)
+        if not parsed:
+            print(" Could not understand input.")
+            continue
+        steps = get_equation_steps(parsed)
+        for step in steps:
+            print(step)
+
+def run_gui():
+    def solve_question():
+        user_input = entry.get()
+        parsed = parse_input(user_input)
+        if not parsed:
+            messagebox.showerror("Error", " Could not understand input.")
+            return
+        steps = get_equation_steps(parsed)
+        result_text.delete(1.0, tk.END)
+        for step in steps:
+            result_text.insert(tk.END, step + "\n")
+
+    root = tk.Tk()
+    root.title("Solvy - AI Math Solver")
+    root.geometry("500x400")
+
+    tk.Label(root, text="Enter a math question:").pack()
+    entry = tk.Entry(root, width=60)
+    entry.pack()
+
+    tk.Button(root, text="Solve", command=solve_question).pack()
+
+    result_text = tk.Text(root, height=15)
+    result_text.pack()
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "gui":
+        run_gui()
+    else:
+        main()
